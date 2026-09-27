@@ -41,6 +41,7 @@ input,select{width:100%;padding:12px;border:1px solid var(--line);border-radius:
 @keyframes pop{0%{transform:scale(.4);opacity:0}70%{transform:scale(1.18)}100%{transform:scale(1);opacity:1}}
 .tip{margin-top:12px;padding:12px 14px;border-radius:14px;background:#f8fbff;border-left:4px solid var(--cyan);font-size:14px}
 .footer{text-align:center;margin-top:28px;color:var(--muted);font-size:13px}
+.teacher-frame{width:100%;height:720px;border:1px solid var(--line);border-radius:18px;background:#f8faff;margin-top:14px}
 </style>
 </head>
 <body><div class="wrap">
@@ -84,15 +85,16 @@ input,select{width:100%;padding:12px;border:1px solid var(--line);border-radius:
 <p><span class="pill">Разговорная запись</span> — письменная форма передаёт быструю разговорную речь: <b>щас → сейчас</b>, <b>прив → привет</b>.</p>
 <p><span class="pill">Интернет-сленг</span> — особое слово цифрового общения: <b>го → давай/пойдём</b>, <b>изи → легко</b>.</p>
 </section>
-<section id="researcher" class="section card hidden">
-<h2>📊 Панель исследователя</h2>
-<p class="small">Локально сохранено прохождений: <b id="countRuns">0</b></p>
-<button onclick="exportCSV()">Скачать сводные результаты CSV</button>
-<button class="secondary" onclick="exportDetailedCSV()">Скачать анкету CSV</button>
+<section class="section card">
+<h2>🔐 Для учителя</h2>
+<p>Общие результаты, сводка по классу и выгрузка таблицы доступны по кодовому слову.</p>
+<button class="secondary" onclick="openTeacher()">Открыть результаты →</button>
+<div id="teacherPanel" class="hidden"><iframe id="teacherFrame" class="teacher-frame" title="Результаты для учителя"></iframe></div>
 </section>
 <div class="footer">На языке чата • интерактивный словарь цифровой речи</div>
 </div>
 <script>
+const COLLECTOR_URL="__COLLECTOR_URL__";
 const words=[
 ["спс","спасибо","сокращение"],["пж","пожалуйста","сокращение"],["дз","домашнее задание","сокращение"],
 ["норм","нормально","сокращение"],["прив","привет","разговорная запись"],["щас","сейчас","разговорная запись"],
@@ -165,32 +167,61 @@ function pickHabit(a){
 
 function finish(){
  document.getElementById("quiz").classList.add("hidden");let pct=Math.round(score/14*100);
- let data={participant:name.value.trim(),class:klass.value.trim(),score,total:14,percent:pct,difficult:[...new Set(hard)],date:new Date().toLocaleString(),answers,habitAnswers};
+ let data={id:(crypto.randomUUID?crypto.randomUUID():"run-"+Date.now()+"-"+Math.random().toString(36).slice(2)),participant:name.value.trim(),class:klass.value.trim(),score,total:14,percent:pct,difficult:[...new Set(hard)],date:new Date().toLocaleString(),answers,habitAnswers,synced:false};
  let all=JSON.parse(localStorage.getItem("chatStudy")||"[]");all.push(data);localStorage.setItem("chatStudy",JSON.stringify(all));
  result.classList.remove("hidden");result.innerHTML=`<h2>🎉 Готово! Ты расшифровал(а) язык чата</h2><div class="quizbox">${score}/14</div><div class="meter"><span style="width:${pct}%"></span></div><p><b>${pct}%</b> заданий на значение и уместность выполнено верно.</p><p>${hard.length?`Сложнее всего оказались: <b>${[...new Set(hard)].join(", ")}</b>.`:"Все сокращения из теста распознаны."}</p><div class="note"><b>Важно:</b> ответы из раздела «Моя цифровая речь» не оцениваются. Они нужны ученице-исследователю, чтобы выяснить, почему шестиклассники сокращают слова и всегда ли такие записи понятны.</div><p><b>Спасибо!</b> Твои ответы помогут узнать, как шестиклассники общаются в цифровой среде.</p>
-<div class="tip">💡 В чате сокращения могут экономить время. Но чем официальнее собеседник и ситуация, тем важнее выбирать полную и понятную форму слова.</div><button onclick="location.reload()">Новый участник →</button>`;
+<div class="tip">💡 В чате сокращения могут экономить время. Но чем официальнее собеседник и ситуация, тем важнее выбирать полную и понятную форму слова.</div>
+<p id="saveStatus" class="small">Отправляем результат в общую таблицу...</p><button id="retrySave" class="secondary hidden" onclick="sendRunById('${data.id}')">Повторить отправку</button>
+<button onclick="location.reload()">Новый участник →</button>`;
  location.hash="result";
+ sendRun(data);
 }
-function csvDownload(rows,filename){
- let csv="\ufeff"+rows.map(r=>r.map(v=>`"${String(v??"").replaceAll('"','""')}"`).join(";")).join("\n");
- let a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));a.download=filename;a.click();
+function openTeacher(){
+ teacherPanel.classList.remove("hidden");
+ if(!teacherFrame.src) teacherFrame.src=COLLECTOR_URL+"?view=teacher";
+ teacherPanel.scrollIntoView({behavior:"smooth",block:"start"});
 }
-function exportCSV(){
+function markSynced(id){
  let all=JSON.parse(localStorage.getItem("chatStudy")||"[]");
- let rows=[["Участник","Класс","Баллы","Всего","Процент","Сложные слова","Дата"],...all.map(x=>[x.participant,x.class,x.score,x.total,x.percent,x.difficult.join(" "),x.date])];
- csvDownload(rows,"rezultaty_chat_slovar.csv");
+ let item=all.find(x=>x.id===id);if(item)item.synced=true;
+ localStorage.setItem("chatStudy",JSON.stringify(all));
 }
-function exportDetailedCSV(){
- let all=JSON.parse(localStorage.getItem("chatStudy")||"[]");
- let headers=["Участник","Класс","Баллы","Процент","Сложные слова",...habits.map(h=>h.q),"Дата"];
- let rows=[headers,...all.map(x=>[x.participant,x.class,x.score,x.percent,x.difficult.join(" "),...habits.map((h,i)=>(x.habitAnswers&&x.habitAnswers[i]?x.habitAnswers[i].answer:"")),x.date])];
- csvDownload(rows,"issledovanie_cifrovoy_rechi.csv");
+function getSavedStatus(id){
+ return new Promise(resolve=>{
+  let done=false,script=document.createElement("script");
+  let timer=setTimeout(()=>finish(false),6500);
+  function finish(value){if(done)return;done=true;clearTimeout(timer);script.remove();delete window.__chatAck;resolve(value)}
+  window.__chatAck=x=>finish(x.id===id&&x.saved===true);
+  script.onerror=()=>finish(false);
+  script.src=COLLECTOR_URL+"?action=status&id="+encodeURIComponent(id)+"&t="+Date.now();
+  document.head.appendChild(script);
+ });
 }
-document.addEventListener("keydown",e=>{
- if(e.ctrlKey && e.shiftKey && e.key.toLowerCase()==="r"){
-   researcher.classList.toggle("hidden");
-   countRuns.textContent=JSON.parse(localStorage.getItem("chatStudy")||"[]").length;
+async function sendRun(data){
+ let status=document.getElementById("saveStatus"),retry=document.getElementById("retrySave");
+ if(status)status.textContent="Отправляем результат в общую таблицу...";
+ if(retry)retry.classList.add("hidden");
+ try{
+  await fetch(COLLECTOR_URL,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(data)});
+  for(let i=0;i<5;i++){
+   if(await getSavedStatus(data.id)){
+    markSynced(data.id);if(status)status.textContent="✓ Результат сохранён в общей таблице.";return;
+   }
+   await new Promise(r=>setTimeout(r,900));
+  }
+  throw new Error("Не получено подтверждение");
+ }catch(e){
+  if(status)status.textContent="Не удалось подтвердить сохранение. Проверь соединение и повтори отправку.";
+  if(retry)retry.classList.remove("hidden");
  }
-});
+}
+function sendRunById(id){
+ const item=JSON.parse(localStorage.getItem("chatStudy")||"[]").find(x=>x.id===id);
+ if(item)sendRun(item);
+}
+setTimeout(()=>{
+ const pending=JSON.parse(localStorage.getItem("chatStudy")||"[]").filter(x=>x.id&&!x.synced);
+ pending.slice(-5).forEach(x=>sendRun(x));
+},2500);
 renderDict();
 </script></body></html>
