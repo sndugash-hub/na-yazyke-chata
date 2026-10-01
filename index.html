@@ -123,7 +123,9 @@ function renderDict(){
  document.getElementById("dict").innerHTML=words.map(w=>`<div class="card"><div class="cat">${w[2]}</div><div class="word">${w[0]}</div><div class="full">→ ${w[1]}</div></div>`).join("");
 }
 function start(){
- if(!name.value.trim()||!klass.value.trim()){alert("Введите имя/код и класс.");return}
+ const participantInput=document.getElementById("name");
+ const classInput=document.getElementById("klass");
+ if(!participantInput.value.trim()||!classInput.value.trim()){alert("Введите имя/код и класс.");return}
  document.getElementById("quiz").classList.remove("hidden"); qi=0;score=0;hard=[];sit=0;hi=0;answers=[];habitAnswers=[]; showQ(); location.hash="quiz";
 }
 function showQ(){
@@ -170,7 +172,7 @@ function sendToSheet(data){
 
 function finish(){
  document.getElementById("quiz").classList.add("hidden");let pct=Math.round(score/14*100);
- let data={participant:name.value.trim(),class:klass.value.trim(),score,total:14,percent:pct,difficult:[...new Set(hard)],date:new Date().toLocaleString(),answers,habitAnswers};
+ let data={participant:document.getElementById("name").value.trim(),class:document.getElementById("klass").value.trim(),score,total:14,percent:pct,difficult:[...new Set(hard)],date:new Date().toLocaleString(),answers,habitAnswers};
  let all=JSON.parse(localStorage.getItem("chatStudy")||"[]");all.push(data);localStorage.setItem("chatStudy",JSON.stringify(all));
  sendToSheet(data);
  result.classList.remove("hidden");result.innerHTML=`<h2>🎉 Готово! Ты расшифровал(а) язык чата</h2><div class="quizbox">${score}/14</div><div class="meter"><span style="width:${pct}%"></span></div><p><b>${pct}%</b> заданий на значение и уместность выполнено верно.</p><p>${hard.length?`Сложнее всего оказались: <b>${[...new Set(hard)].join(", ")}</b>.`:"Все сокращения из теста распознаны."}</p><div class="note"><b>Важно:</b> ответы из раздела «Моя цифровая речь» не оцениваются. Они нужны ученице-исследователю, чтобы выяснить, почему шестиклассники сокращают слова и всегда ли такие записи понятны.</div><p><b>Спасибо!</b> Твои ответы помогут узнать, как шестиклассники общаются в цифровой среде.</p>
