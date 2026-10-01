@@ -163,10 +163,16 @@ function pickHabit(a){
  hi++; showHabit();
 }
 
+const RESULTS_ENDPOINT = "https://script.google.com/macros/s/AKfycbz2_qF5RHULuqUZv-ilO3V4OBMRChB6N0Z9ZGj398c3hzQJ20p2cXiWNwqe2hORMMb11g/exec";
+function sendToSheet(data){
+ fetch(RESULTS_ENDPOINT,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(data)}).catch(()=>{});
+}
+
 function finish(){
  document.getElementById("quiz").classList.add("hidden");let pct=Math.round(score/14*100);
  let data={participant:name.value.trim(),class:klass.value.trim(),score,total:14,percent:pct,difficult:[...new Set(hard)],date:new Date().toLocaleString(),answers,habitAnswers};
  let all=JSON.parse(localStorage.getItem("chatStudy")||"[]");all.push(data);localStorage.setItem("chatStudy",JSON.stringify(all));
+ sendToSheet(data);
  result.classList.remove("hidden");result.innerHTML=`<h2>🎉 Готово! Ты расшифровал(а) язык чата</h2><div class="quizbox">${score}/14</div><div class="meter"><span style="width:${pct}%"></span></div><p><b>${pct}%</b> заданий на значение и уместность выполнено верно.</p><p>${hard.length?`Сложнее всего оказались: <b>${[...new Set(hard)].join(", ")}</b>.`:"Все сокращения из теста распознаны."}</p><div class="note"><b>Важно:</b> ответы из раздела «Моя цифровая речь» не оцениваются. Они нужны ученице-исследователю, чтобы выяснить, почему шестиклассники сокращают слова и всегда ли такие записи понятны.</div><p><b>Спасибо!</b> Твои ответы помогут узнать, как шестиклассники общаются в цифровой среде.</p>
 <div class="tip">💡 В чате сокращения могут экономить время. Но чем официальнее собеседник и ситуация, тем важнее выбирать полную и понятную форму слова.</div><button onclick="location.reload()">Новый участник →</button>`;
  location.hash="result";
