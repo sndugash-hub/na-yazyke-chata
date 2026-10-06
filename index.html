@@ -90,7 +90,7 @@ input,select{width:100%;padding:12px;border:1px solid var(--line);border-radius:
 <button onclick="exportCSV()">Скачать сводные результаты CSV</button>
 <button class="secondary" onclick="exportDetailedCSV()">Скачать анкету CSV</button>
 </section>
-<div class="footer">На языке чата • интерактивный словарь цифровой речи</div>
+<section class="section card"><h2>📊 Для исследователя</h2><p class="small">Введите код доступа, чтобы открыть общий отчёт.</p><div class="row"><input id="reportCode" type="password" placeholder="Код доступа"><button onclick="loadReport()">Открыть отчёт</button></div><p id="reportStatus" class="small"></p><div id="reportBox" class="hidden"><div id="reportStats" class="grid"></div><h3>Почему сокращают слова?</h3><div id="reasonStats"></div><h3>Сокращения в сообщении учителю</h3><div id="teacherStats"></div><h3>Экономят ли сокращения время?</h3><div id="timeStats"></div><h3>Самые трудные сокращения</h3><div id="hardStats"></div></div></section><div class="footer">На языке чата • интерактивный словарь цифровой речи</div>
 </div>
 <script>
 const words=[
@@ -194,6 +194,10 @@ function exportDetailedCSV(){
  let rows=[headers,...all.map(x=>[x.participant,x.class,x.score,x.percent,x.difficult.join(" "),...habits.map((h,i)=>(x.habitAnswers&&x.habitAnswers[i]?x.habitAnswers[i].answer:"")),x.date])];
  csvDownload(rows,"issledovanie_cifrovoy_rechi.csv");
 }
+
+function bars(id,arr){const n=arr.length||1,m={};arr.forEach(v=>{v=String(v||"Нет ответа");m[v]=(m[v]||0)+1});document.getElementById(id).innerHTML=Object.entries(m).sort((a,b)=>b[1]-a[1]).map(([k,v])=>{const p=Math.round(v/n*100);return '<p><b>'+k+'</b> — '+v+' ('+p+'%)</p><div class="meter"><span style="width:'+p+'%"></span></div>'}).join("")}
+async function loadReport(){const st=document.getElementById("reportStatus");if(document.getElementById("reportCode").value.trim()!=="chat6"){st.textContent="Неверный код доступа.";return}st.textContent="Загружаю результаты…";try{const r=await fetch(RESULTS_ENDPOINT);const j=await r.json();const a=j.results||[];const avg=a.length?Math.round(a.reduce((s,x)=>s+(Number(x["Процент"])||0),0)/a.length):0;document.getElementById("reportStats").innerHTML='<div class="card"><div class="cat">Участники</div><div class="word">'+a.length+'</div></div><div class="card"><div class="cat">Средний результат</div><div class="word">'+avg+'%</div></div>';bars("reasonStats",a.map(x=>x["Почему сокращает слова"]));bars("teacherStats",a.map(x=>x["Сокращения в сообщении учителю"]));bars("timeStats",a.map(x=>x["Экономят ли сокращения время"]));let h=[];a.forEach(x=>String(x["Трудные слова"]||"").split(",").forEach(y=>{y=y.trim();if(y)h.push(y)}));bars("hardStats",h);document.getElementById("reportBox").classList.remove("hidden");st.textContent="Загружено участников: "+a.length}catch(e){st.textContent="Не удалось загрузить отчёт."}}
+
 document.addEventListener("keydown",e=>{
  if(e.ctrlKey && e.shiftKey && e.key.toLowerCase()==="r"){
    researcher.classList.toggle("hidden");
